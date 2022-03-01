@@ -25,14 +25,17 @@ def validation(kShot, noiseTaskParams, device, imgDim, learner, lossFunc, psnrFu
 
     # Iterate over tasks
     for idx, sample in enumerate(val_dataloader):
+
+        sample = sample.to(device)
+
         #noiseTaskParams = [("G", sigma), ("P", lambda) ... x6]
         if idx < len(noiseTaskParams):
             noiseParam = noiseTaskParams[idx]
 
             # Split data into train and test partitions
             trainCleanImgs, testCleanImgs = torch.tensor_split(sample, 2, dim=0)
-            trainCleanImgs.to(device)
-            testCleanImgs.to(device)
+            trainCleanImgs = trainCleanImgs.to(device)
+            testCleanImgs = testCleanImgs.to(device)
 
             assert trainCleanImgs.shape == (10, 3, imgDim, imgDim)
             assert testCleanImgs.shape == (10, 3, imgDim, imgDim)
@@ -43,17 +46,21 @@ def validation(kShot, noiseTaskParams, device, imgDim, learner, lossFunc, psnrFu
                 sigma = noiseParam[1]
                 trainNoisyImgs = trainCleanImgs + sigma * torch.randn(*trainCleanImgs.shape)
                 trainNoisyImgs = trainNoisyImgs.clip(torch.min(trainCleanImgs), torch.max(trainCleanImgs))
+                trainNoisyImgs = trainNoisyImgs.to(device)
 
                 testNoisyImgs = testNoisyImgs + sigma * torch.randn(*trainCleanImgs.shape)
                 testNoisyImgs = testNoisyImgs.clip(torch.min(testCleanImgs), torch.max(testCleanImgs))
+                testNoisyImgs = testNoisyImgs.to(device)
             elif noiseParam[0] == "P":
                 # TODO: Apply poisson noise with parameter = noiseParam[1]
                 PEAK = noiseParam[1]
                 trainNoisyImgs = torch.poisson(trainCleanImgs * PEAK) / PEAK
                 trainNoisyImgs = trainNoisyImgs.clip(torch.min(trainCleanImgs), torch.max(trainCleanImgs))
+                trainNoisyImgs = trainNoisyImgs.to(device)
 
                 testNoisyImgs = torch.poisson(testCleanImgs * PEAK) / PEAK
                 testNoisyImgs = testNoisyImgs.clip(torch.min(testCleanImgs), torch.max(testCleanImgs))
+                testNoisyImgs = testNoisyImgs.to(device)
 
             for innerIteration in range(numInnerIterations):
                 trainError = lossFunc(learner(trainNoisyImgs), trainCleanImgs)
@@ -74,24 +81,35 @@ def validation(kShot, noiseTaskParams, device, imgDim, learner, lossFunc, psnrFu
 
 def train(innerLr, outerLr, numOuterIterations, numInnerIterations, kShot, imgDim, noiseTaskParams, metaValFreq):
 
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
+    print(device)
 
     dncnnModel = net(in_nc=3, out_nc=3, nc=64, nb=17, act_mode='BR')
     dncnnModel.to(device)
 
-    mamlModel = l2l.algorithms.MAML(dncnnModel, lr=outerLr)
-    optimizer = optim.Adam(mamlModel.parameters(), lr=innerLr)
+    print(dncnnModel.get_device())
+
+    mamlModel = l2l.algorithms.MAML(dncnnModel, lr=outerLr).cuda()
+    optimizer = optim.Adam(mamlModel.parameters(), lr=innerLr).cuda()
+
+    print(mamlModel.get_device())
+    print(optimizer.get_device())
 
     # Define loss
-    mseLossFunc = nn.MSELoss()
+    mseLossFunc = nn.MSELoss().cuda()
+    print(mseLossFunc.get_device())
 
     # Define PSNR metric
-    psnrFunc = PSNR().double().cuda() if device == 'cuda' else PSNR().double()
+    psnrFunc = PSNR().double().cuda()
+    print(psnrFunc.get_device())
 
     # Keep track of PSNR and loss
     metaTrainPSNR = []
     metaTrainLoss = []
     bestAvgPSNR = 0
+
+    print("before 1st loop")
 
     for outerIteration in range(numOuterIterations):
 
@@ -109,38 +127,50 @@ def train(innerLr, outerLr, numOuterIterations, numInnerIterations, kShot, imgDi
 
         # Iterate over tasks
         # {"G": sigma, "P": ...}
+        print("before 2nd loop")
         for idx, sample in enumerate(train_dataloader):
-            
+            print("before sample")
+            sample = sample.to(device)
+            print("after sample")
             if idx < len(noiseTaskParams):
                 
                 noiseParam = noiseTaskParams[idx]
-
+                print("Before data split")
                 # Split data into train and test partitions
                 trainCleanImgs, testCleanImgs = torch.tensor_split(sample, 2, dim=0)
-                trainCleanImgs.to(device)
-                testCleanImgs.to(device)
+                trainCleanImgs = trainCleanImgs.to(device)
+                testCleanImgs = testCleanImgs.to(device)
 
                 assert trainCleanImgs.shape == (10, 3, imgDim, imgDim)
                 assert testCleanImgs.shape == (10, 3, imgDim, imgDim)
-
+                print("After assert")
                 # Create synthetic noisy images
                 if noiseParam[0] == "G":
                     # TODO: Apply gaussian noise with sigma = noiseParam[1]
                     sigma = noiseParam[1]
                     trainNoisyImgs = trainCleanImgs + sigma * torch.randn(*trainCleanImgs.shape)
                     trainNoisyImgs = trainNoisyImgs.clip(torch.min(trainCleanImgs), torch.max(trainCleanImgs))
+                    trainNoisyImgs = trainNoisyImgs.to(device)
+
+                    print(trainNoisyImgs.get_device())
 
                     testNoisyImgs = testCleanImgs + sigma * torch.randn(*testCleanImgs.shape)
                     testNoisyImgs = testNoisyImgs.clip(torch.min(testCleanImgs), torch.max(testCleanImgs))
+                    testNoisyImgs = testNoisyImgs.to(device)
+
+                    print(testNoisyImgs.get_device())
+
                 elif noiseParam[0] == "P":
                     # TODO: Apply poisson noise with parameter = noiseParam[1]
                     PEAK = noiseParam[1]
                     trainNoisyImgs = torch.poisson(trainCleanImgs * PEAK) / PEAK
                     trainNoisyImgs = trainNoisyImgs.clip(torch.min(trainCleanImgs), torch.max(trainCleanImgs))
+                    trainNoisyImgs = trainNoisyImgs.to(device)
 
                     testNoisyImgs = torch.poisson(testCleanImgs * PEAK) / PEAK
                     testNoisyImgs = testNoisyImgs.clip(torch.min(testCleanImgs), torch.max(testCleanImgs))
-
+                    testNoisyImgs = testNoisyImgs.to(device)
+                print("Before 3rd loop")
                 learner = mamlModel.clone()
                 for innerIteration in range(numInnerIterations):
                     trainError = mseLossFunc(learner(trainNoisyImgs), trainCleanImgs)

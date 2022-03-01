@@ -13,9 +13,9 @@ from tqdm import tqdm
 torch.manual_seed(1)
 torch.use_deterministic_algorithms(True)
 
-matplotlib.rcParams['figure.raise_window'] = False
+#matplotlib.rcParams['figure.raise_window'] = False
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 class BSDS300Dataset(Dataset):
