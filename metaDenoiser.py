@@ -147,6 +147,7 @@ def train(innerLr, outerLr, numOuterIterations, numInnerIterations, kShot, imgDi
 
                 # Evaluate the adapted model
                 predictions = learner(testNoisyImgs)
+                predictions = predictions.clip(0.0, 1.0)    # <-- psnrFunc() fails if values outside of dynamic range
                 testError = mseLossFunc(predictions, testCleanImgs)
                 testPSNR = psnrFunc(predictions, testCleanImgs).item()
 
