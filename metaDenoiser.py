@@ -45,10 +45,10 @@ def validation(kShot, noiseTaskParams, device, imgDim, learner, lossFunc, psnrFu
             if noiseParam[0] == "G":
                 # TODO: Apply gaussian noise with sigma = noiseParam[1]
                 sigma = noiseParam[1]
-                trainNoisyImgs = trainCleanImgs + sigma * torch.randn(*trainCleanImgs.shape)
+                trainNoisyImgs = trainCleanImgs + sigma * torch.randn(*trainCleanImgs.shape).cuda()
                 trainNoisyImgs = trainNoisyImgs.clip(dynRange[0], dynRange[1])
 
-                testNoisyImgs = testNoisyImgs + sigma * torch.randn(*trainCleanImgs.shape)
+                testNoisyImgs = testNoisyImgs + sigma * torch.randn(*trainCleanImgs.shape).cuda()
                 testNoisyImgs = testNoisyImgs.clip(dynRange[0], dynRange[1])
 
             elif noiseParam[0] == "P":
@@ -86,29 +86,20 @@ def train(innerLr, outerLr, numOuterIterations, numInnerIterations, kShot, imgDi
     dncnnModel = net(in_nc=3, out_nc=3, nc=64, nb=17, act_mode='BR')
     dncnnModel.to(device)
 
-    print(dncnnModel.get_device())
-
-    mamlModel = l2l.algorithms.MAML(dncnnModel, lr=outerLr).cuda()
-    optimizer = optim.Adam(mamlModel.parameters(), lr=innerLr).cuda()
-
-    print(mamlModel.get_device())
-    print(optimizer.get_device())
+    mamlModel = l2l.algorithms.MAML(dncnnModel, lr=innerLr)
+    optimizer = optim.Adam(mamlModel.parameters(), lr=outerLr)
 
     # Define loss
-    mseLossFunc = nn.MSELoss().cuda()
-    print(mseLossFunc.get_device())
+    mseLossFunc = nn.MSELoss()
 
     # Define PSNR metric
     psnrFunc = PSNR().double().cuda()
-    print(psnrFunc.get_device())
 
     # Keep track of PSNR and loss
     metaTrainPSNR = []
     metaTrainLoss = []
     bestAvgPSNR = 0
     dynRange = [0.0, 1.0]
-
-    print("before 1st loop")
 
     for outerIteration in range(numOuterIterations):
 
@@ -126,31 +117,28 @@ def train(innerLr, outerLr, numOuterIterations, numInnerIterations, kShot, imgDi
 
         # Iterate over tasks
         # {"G": sigma, "P": ...}
-        print("before 2nd loop")
         for idx, sample in enumerate(train_dataloader):
-            print("before sample")
+
             sample = sample.to(device)
-            print("after sample")
+
             if idx < len(noiseTaskParams):
                 
                 noiseParam = noiseTaskParams[idx]
-                print("Before data split")
                 # Split data into train and test partitions
                 trainCleanImgs, testCleanImgs = torch.tensor_split(sample, 2, dim=0)
-                trainCleanImgs = trainCleanImgs.to(device)
-                testCleanImgs = testCleanImgs.to(device)
+                #trainCleanImgs = trainCleanImgs.to(device)
+                #testCleanImgs = testCleanImgs.to(device)
 
                 assert trainCleanImgs.shape == (10, 3, imgDim, imgDim)
                 assert testCleanImgs.shape == (10, 3, imgDim, imgDim)
-                print("After assert")
                 # Create synthetic noisy images
                 if noiseParam[0] == "G":
                     # TODO: Apply gaussian noise with sigma = noiseParam[1]
                     sigma = noiseParam[1]
-                    trainNoisyImgs = trainCleanImgs + sigma * torch.randn(*trainCleanImgs.shape)
+                    trainNoisyImgs = trainCleanImgs + sigma * torch.randn(*trainCleanImgs.shape).cuda()
                     trainNoisyImgs = trainNoisyImgs.clip(dynRange[0], dynRange[1])
 
-                    testNoisyImgs = testCleanImgs + sigma * torch.randn(*testCleanImgs.shape)
+                    testNoisyImgs = testCleanImgs + sigma * torch.randn(*testCleanImgs.shape).cuda()
                     testNoisyImgs = testNoisyImgs.clip(dynRange[0], dynRange[1])
 
                 elif noiseParam[0] == "P":
