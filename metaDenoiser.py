@@ -22,6 +22,7 @@ def validation(kShot, noiseTaskParams, device, imgDim, learner, lossFunc, psnrFu
 
     error = 0
     PSNR = 0
+    dynRange = [0.0, 1.0]
 
     # Iterate over tasks
     for idx, sample in enumerate(val_dataloader):
@@ -45,22 +46,19 @@ def validation(kShot, noiseTaskParams, device, imgDim, learner, lossFunc, psnrFu
                 # TODO: Apply gaussian noise with sigma = noiseParam[1]
                 sigma = noiseParam[1]
                 trainNoisyImgs = trainCleanImgs + sigma * torch.randn(*trainCleanImgs.shape)
-                trainNoisyImgs = trainNoisyImgs.clip(torch.min(trainCleanImgs), torch.max(trainCleanImgs))
-                trainNoisyImgs = trainNoisyImgs.to(device)
+                trainNoisyImgs = trainNoisyImgs.clip(dynRange[0], dynRange[1])
 
                 testNoisyImgs = testNoisyImgs + sigma * torch.randn(*trainCleanImgs.shape)
-                testNoisyImgs = testNoisyImgs.clip(torch.min(testCleanImgs), torch.max(testCleanImgs))
-                testNoisyImgs = testNoisyImgs.to(device)
+                testNoisyImgs = testNoisyImgs.clip(dynRange[0], dynRange[1])
+
             elif noiseParam[0] == "P":
                 # TODO: Apply poisson noise with parameter = noiseParam[1]
                 PEAK = noiseParam[1]
                 trainNoisyImgs = torch.poisson(trainCleanImgs * PEAK) / PEAK
-                trainNoisyImgs = trainNoisyImgs.clip(torch.min(trainCleanImgs), torch.max(trainCleanImgs))
-                trainNoisyImgs = trainNoisyImgs.to(device)
+                trainNoisyImgs = trainNoisyImgs.clip(dynRange[0], dynRange[1])
 
                 testNoisyImgs = torch.poisson(testCleanImgs * PEAK) / PEAK
-                testNoisyImgs = testNoisyImgs.clip(torch.min(testCleanImgs), torch.max(testCleanImgs))
-                testNoisyImgs = testNoisyImgs.to(device)
+                testNoisyImgs = testNoisyImgs.clip(dynRange[0], dynRange[1])
 
             for innerIteration in range(numInnerIterations):
                 trainError = lossFunc(learner(trainNoisyImgs), trainCleanImgs)
@@ -108,6 +106,7 @@ def train(innerLr, outerLr, numOuterIterations, numInnerIterations, kShot, imgDi
     metaTrainPSNR = []
     metaTrainLoss = []
     bestAvgPSNR = 0
+    dynRange = [0.0, 1.0]
 
     print("before 1st loop")
 
@@ -149,28 +148,20 @@ def train(innerLr, outerLr, numOuterIterations, numInnerIterations, kShot, imgDi
                     # TODO: Apply gaussian noise with sigma = noiseParam[1]
                     sigma = noiseParam[1]
                     trainNoisyImgs = trainCleanImgs + sigma * torch.randn(*trainCleanImgs.shape)
-                    trainNoisyImgs = trainNoisyImgs.clip(torch.min(trainCleanImgs), torch.max(trainCleanImgs))
-                    trainNoisyImgs = trainNoisyImgs.to(device)
-
-                    print(trainNoisyImgs.get_device())
+                    trainNoisyImgs = trainNoisyImgs.clip(dynRange[0], dynRange[1])
 
                     testNoisyImgs = testCleanImgs + sigma * torch.randn(*testCleanImgs.shape)
-                    testNoisyImgs = testNoisyImgs.clip(torch.min(testCleanImgs), torch.max(testCleanImgs))
-                    testNoisyImgs = testNoisyImgs.to(device)
-
-                    print(testNoisyImgs.get_device())
+                    testNoisyImgs = testNoisyImgs.clip(dynRange[0], dynRange[1])
 
                 elif noiseParam[0] == "P":
                     # TODO: Apply poisson noise with parameter = noiseParam[1]
                     PEAK = noiseParam[1]
                     trainNoisyImgs = torch.poisson(trainCleanImgs * PEAK) / PEAK
-                    trainNoisyImgs = trainNoisyImgs.clip(torch.min(trainCleanImgs), torch.max(trainCleanImgs))
-                    trainNoisyImgs = trainNoisyImgs.to(device)
+                    trainNoisyImgs = trainNoisyImgs.clip(dynRange[0], dynRange[1])
 
                     testNoisyImgs = torch.poisson(testCleanImgs * PEAK) / PEAK
-                    testNoisyImgs = testNoisyImgs.clip(torch.min(testCleanImgs), torch.max(testCleanImgs))
-                    testNoisyImgs = testNoisyImgs.to(device)
-                print("Before 3rd loop")
+                    testNoisyImgs = testNoisyImgs.clip(dynRange[0], dynRange[1])
+
                 learner = mamlModel.clone()
                 for innerIteration in range(numInnerIterations):
                     trainError = mseLossFunc(learner(trainNoisyImgs), trainCleanImgs)
