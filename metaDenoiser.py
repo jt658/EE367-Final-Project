@@ -40,6 +40,7 @@ def validation(kShot, noiseTaskParams, device, imgDim, learner, lossFunc, psnrFu
             # Create synthetic noisy images
             if noiseParam[0] == "G":
                 # TODO: Apply gaussian noise with sigma = noiseParam[1]
+                sigma = noiseParam[1]
                 trainNoisyImgs = trainCleanImgs + sigma * torch.randn(*trainCleanImgs.shape)
                 trainNoisyImgs = trainNoisyImgs.clip(torch.min(trainCleanImgs), torch.max(trainCleanImgs))
 
@@ -138,7 +139,7 @@ def train(innerLr, outerLr, numOuterIterations, numInnerIterations, kShot, imgDi
                     trainNoisyImgs = trainNoisyImgs.clip(torch.min(trainCleanImgs), torch.max(trainCleanImgs))
 
                     testNoisyImgs = torch.poisson(testCleanImgs * PEAK) / PEAK
-                    testNoisyImgs = trainNoisyImgs.clip(torch.min(testCleanImgs), torch.max(testCleanImgs))
+                    testNoisyImgs = testNoisyImgs.clip(torch.min(testCleanImgs), torch.max(testCleanImgs))
 
                 learner = mamlModel.clone()
                 for innerIteration in range(numInnerIterations):
@@ -160,11 +161,15 @@ def train(innerLr, outerLr, numOuterIterations, numInnerIterations, kShot, imgDi
         metaTrainLoss.append(iterError.item() / len(noiseTaskParams))
         metaTrainPSNR.append(iterPSNR / len(noiseTaskParams))
 
+        print(f'Iteration: {outerIteration} | Meta-Train Loss: {metaTrainLoss[-1]:.04f} | Meta-Train PSNR: {metaTrainPSNR[-1]:.04f}')
+
         # Apply meta-validation for all tasks using the meta-val dataset
         # Keep track of the best model
         if outerIteration != 0 and outerIteration % metaValFreq == 0:
             metaValLoss, metaValPSNR = validation(kShot, noiseTaskParams, device, imgDim, learner, mseLossFunc,
                                                   psnrFunc, numInnerIterations)
+
+            print(f'Meta-Val Iteration: {outerIteration} | Meta-Val Loss: {metaValLoss:.04f} | Meta-Val PSNR: {metaValPSNR:.04f}')
 
             # Save parameters of inner model with the best result
             if metaValPSNR > bestAvgPSNR:
