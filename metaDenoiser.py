@@ -10,9 +10,9 @@ from BSDS300Dataset import BSDS300Dataset
 from piqa import PSNR
 from network_dncnn import DnCNN as net
 from torch.utils.data import DataLoader
+import time 
 
 
-@torch.no_grad()
 def validation(kShot, noiseTaskParams, device, imgDim, learner, lossFunc, psnrFunc, numInnerIterations):
     # create datasets
     val_dataset = BSDS300Dataset(patch_size=32, split='test', use_patches=True)
@@ -48,7 +48,7 @@ def validation(kShot, noiseTaskParams, device, imgDim, learner, lossFunc, psnrFu
                 trainNoisyImgs = trainCleanImgs + sigma * torch.randn(*trainCleanImgs.shape).cuda()
                 trainNoisyImgs = trainNoisyImgs.clip(dynRange[0], dynRange[1])
 
-                testNoisyImgs = testNoisyImgs + sigma * torch.randn(*trainCleanImgs.shape).cuda()
+                testNoisyImgs = testCleanImgs + sigma * torch.randn(*testCleanImgs.shape).cuda()
                 testNoisyImgs = testNoisyImgs.clip(dynRange[0], dynRange[1])
 
             elif noiseParam[0] == "P":
@@ -117,6 +117,7 @@ def train(innerLr, outerLr, numOuterIterations, numInnerIterations, kShot, imgDi
 
         # Iterate over tasks
         # {"G": sigma, "P": ...}
+        iterTimeStart = time.time()
         for idx, sample in enumerate(train_dataloader):
 
             sample = sample.to(device)
@@ -164,13 +165,14 @@ def train(innerLr, outerLr, numOuterIterations, numInnerIterations, kShot, imgDi
                 # Add error and PSNR for each task
                 iterError += testError
                 iterPSNR += testPSNR
-
+        iterTimeEnd = time.time()
+        iterTime = iterTimeEnd-iterTimeStart
         # Save average error and PSNR across all tasks in the current outer iteration
         avgIterError = iterError / len(noiseTaskParams)
         metaTrainLoss.append(iterError.item() / len(noiseTaskParams))
         metaTrainPSNR.append(iterPSNR / len(noiseTaskParams))
 
-        print(f'Iteration: {outerIteration} | Meta-Train Loss: {metaTrainLoss[-1]:.04f} | Meta-Train PSNR: {metaTrainPSNR[-1]:.04f}')
+        print(f'Iteration: {outerIteration} | Meta-Train Loss: {metaTrainLoss[-1]:.04f} | Meta-Train PSNR: {metaTrainPSNR[-1]:.04f} | Time: {iterTime:.04f}')
 
         # Apply meta-validation for all tasks using the meta-val dataset
         # Keep track of the best model
