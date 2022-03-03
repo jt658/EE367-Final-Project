@@ -38,7 +38,7 @@ import models.basicblock as B
 # DnCNN
 # --------------------------------------------
 class DnCNN(nn.Module):
-    def __init__(self, in_nc=1, out_nc=1, nc=64, nb=17, act_mode='BR'):
+    def __init__(self, in_nc=1, out_nc=1, nc=64, nb=17, act_mode='BR', use_bias=True):
         """
         # ------------------------------------
         in_nc: channel number of input
@@ -58,7 +58,7 @@ class DnCNN(nn.Module):
         """
         super(DnCNN, self).__init__()
         assert 'R' in act_mode or 'L' in act_mode, 'Examples of activation function: R, L, BR, BL, IR, IL'
-        bias = True
+        bias = use_bias
 
         m_head = B.conv(in_nc, nc, mode='C'+act_mode[-1], bias=bias)
         m_body = [B.conv(nc, nc, mode='C'+act_mode, bias=bias) for _ in range(nb-2)]
