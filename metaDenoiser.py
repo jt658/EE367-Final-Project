@@ -35,8 +35,8 @@ def validation(kShot, noiseTaskParams, device, imgDim, learner, lossFunc, psnrFu
 
             # Split data into train and test partitions
             trainCleanImgs, testCleanImgs = torch.tensor_split(sample, 2, dim=0)
-            trainCleanImgs = trainCleanImgs.to(device)
-            testCleanImgs = testCleanImgs.to(device)
+            #trainCleanImgs = trainCleanImgs.to(device)
+            #testCleanImgs = testCleanImgs.to(device)
 
             assert trainCleanImgs.shape == (10, 3, imgDim, imgDim)
             assert testCleanImgs.shape == (10, 3, imgDim, imgDim)
@@ -66,6 +66,7 @@ def validation(kShot, noiseTaskParams, device, imgDim, learner, lossFunc, psnrFu
 
             # Evaluate the adapted model
             predictions = learner(testNoisyImgs)
+            predictions = predictions.clip(0.0, 1.0)
             testError = lossFunc(predictions, testCleanImgs).item()
             testPSNR = psnrFunc(predictions, testCleanImgs).item()
 
@@ -190,7 +191,6 @@ def train(innerLr, outerLr, numOuterIterations, numInnerIterations, kShot, imgDi
         # Update outer loop parameters/ meta-learning parameters
         avgIterError.backward()
         optimizer.step()
-
 
 def test(model, cleanTestData, noisyTestData, numInnerIterations):
 
