@@ -24,6 +24,8 @@ def validation(kShot, noiseTaskParams, device, imgDim, learner, lossFunc, psnrFu
     PSNR = 0
     dynRange = [0.0, 1.0]
 
+    print("Meta-Val PSNRs Per Task:")
+
     # Iterate over tasks
     for idx, sample in enumerate(val_dataloader):
 
@@ -70,6 +72,18 @@ def validation(kShot, noiseTaskParams, device, imgDim, learner, lossFunc, psnrFu
             testError = lossFunc(predictions, testCleanImgs).item()
             testPSNR = psnrFunc(predictions, testCleanImgs).item()
 
+            print(f'Noise Params: {noiseParam[1]} Meta-Val Task PSNR: {testPSNR:.04f} Noisy Image PSNR: {psnrFunc(testNoisyImgs, testCleanImgs):.04f}')     
+
+            #fig, ax = plt.subplots(nrows=1,ncols=3, figsize=(12,12))
+            #ax[0].imshow(torch.permute(torch.squeeze(testCleanImgs[0,:,:,:]), (1,2,0)).cpu().detach().numpy())
+            #ax[0].set_title("Clean Image")
+
+            #ax[1].imshow(torch.permute(torch.squeeze(testNoisyImgs[0,:,:,:]), (1,2,0)).cpu().detach().numpy())
+            #ax[1].set_title("Noisy Image")
+
+            #ax[2].imshow(torch.permute(torch.squeeze(predictions[0,:,:,:]), (1,2,0)).cpu().detach().numpy())
+            #ax[2].set_title("Denoised Image") 
+
             # Add error and PSNR for each task
             error += testError
             PSNR += testPSNR
@@ -84,14 +98,14 @@ def train(innerLr, outerLr, numOuterIterations, numInnerIterations, kShot, imgDi
 
     print(device)
 
-    dncnnModel = net(in_nc=3, out_nc=3, nc=64, nb=17, act_mode='BR')
+    dncnnModel = net(in_nc=3, out_nc=3, nc=64, nb=17, act_mode='BR', use_bias=True)
     dncnnModel.to(device)
 
     mamlModel = l2l.algorithms.MAML(dncnnModel, lr=innerLr)
     optimizer = optim.Adam(mamlModel.parameters(), lr=outerLr)
 
     # Define loss
-    mseLossFunc = nn.MSELoss()
+    mseLossFunc = nn.MSELoss() 
 
     # Define PSNR metric
     psnrFunc = PSNR().double().cuda()
