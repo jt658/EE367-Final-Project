@@ -98,14 +98,14 @@ def train(innerLr, outerLr, numOuterIterations, numInnerIterations, kShot, imgDi
 
     print(device)
 
-    dncnnModel = net(in_nc=3, out_nc=3, nc=64, nb=17, act_mode='BR', use_bias=True)
+    dncnnModel = net(in_nc=3, out_nc=3, nc=64, nb=8, act_mode='BR', use_bias=True)
     dncnnModel.to(device)
 
     mamlModel = l2l.algorithms.MAML(dncnnModel, lr=innerLr)
     optimizer = optim.Adam(mamlModel.parameters(), lr=outerLr)
 
     # Define loss
-    mseLossFunc = nn.MSELoss() 
+    mseLossFunc = nn.MSELoss()
 
     # Define PSNR metric
     psnrFunc = PSNR().double().cuda()
