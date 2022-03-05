@@ -4,6 +4,7 @@ from torch.utils.data import Dataset, DataLoader
 from glob import glob
 import os
 import skimage.io
+from skimage.transform import resize
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
@@ -31,10 +32,11 @@ class BSDS300Dataset(Dataset):
     def load_images(self, files):
         out = []
         for fname in files:
-            img = skimage.io.imread(fname)
+            img = skimage.io.imread(fname).astype(np.float32) / 255.
             if img.shape[0] > img.shape[1]:
                 img = img.transpose(1, 0, 2)
-            img = img.transpose(2, 0, 1).astype(np.float32) / 255.
+            img = resize(img, (32,32), anti_aliasing=True)
+            img = img.transpose(2, 0, 1)
             out.append(torch.from_numpy(img))
         return torch.stack(out)
 
