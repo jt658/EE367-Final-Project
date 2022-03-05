@@ -35,7 +35,7 @@ class BSDS300Dataset(Dataset):
             img = skimage.io.imread(fname).astype(np.float32) / 255.
             if img.shape[0] > img.shape[1]:
                 img = img.transpose(1, 0, 2)
-            img = resize(img, (44,44), anti_aliasing=True)
+            img = resize(img, (32,32), anti_aliasing=True)
             img = img.transpose(2, 0, 1)
             out.append(torch.from_numpy(img))
         return torch.stack(out)
