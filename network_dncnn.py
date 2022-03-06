@@ -38,7 +38,7 @@ import models.basicblock as B
 # DnCNN
 # --------------------------------------------
 class DnCNN(nn.Module):
-    def __init__(self, in_nc=1, out_nc=1, nc=64, nb=17, act_mode='BR', use_bias=True):
+    def __init__(self, in_nc=1, out_nc=1, nc=64, nb=8, act_mode='BR', use_bias=True):
         """
         # ------------------------------------
         in_nc: channel number of input
