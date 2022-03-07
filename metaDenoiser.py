@@ -11,7 +11,8 @@ from piqa import PSNR
 from network_dncnn import DnCNN as net
 from torch.utils.data import DataLoader
 import time 
-
+from SIDDDataset import SIDDDataset
+from PIL import Image
 
 def validation(kShot, noiseTaskParams, device, imgDim, learner, lossFunc, psnrFunc, numInnerIterations):
     # create datasets
@@ -206,31 +207,88 @@ def train(innerLr, outerLr, numOuterIterations, numInnerIterations, kShot, imgDi
         avgIterError.backward()
         optimizer.step()
 
-def test(model, cleanTestData, noisyTestData, numInnerIterations):
+def test(numInnerIterations, kshot, innerLr, modelStatePath):
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # Split data into partition for fine tuning and partition for final results
     # TODO: Figure out if my dimensions are correct
-    fineTuneDataClean = cleanTestData[0, ...]
-    fineTuneDataNoisy = noisyTestData[0, ...]
 
-    testDataClean = cleanTestData[1:, ...]
-    testDataNoisy = noisyTestData[1:, ...]
+    test_dataset_patches = SIDDDataset(root='./SIDD_Small_sRGB_Only/Data/*/', patch_size=32, use_patches=True)
+    test_dataloader_patches = DataLoader(test_dataset_patches, batch_size=kshot, shuffle=False, drop_last=True)
 
-    learner = model.clone()
+    test_dataset_full = SIDDDataset(root='./SIDD_Small_sRGB_Only/Data/*/', use_patches=False)
+    test_dataloader_full = DataLoader(test_dataset_full, batch_size=1, shuffle=False, drop_last=True)
+
+    #fineTuneDataClean = cleanTestData[0, ...]
+    #fineTuneDataNoisy = noisyTestData[0, ...]
+
+    #testDataClean = cleanTestData[1:, ...]
+    #testDataNoisy = noisyTestData[1:, ...]
+
+    dncnnModel = net(in_nc=3, out_nc=3, nc=64, nb=5, act_mode='BR', use_bias=True).to(device)
+
+    mamlModel = l2l.algorithms.MAML(dncnnModel, lr=innerLr)
+    mamlModel.load_state_dict(torch.load(modelStatePath))
 
     # Define loss
     mseLossFunc = nn.MSELoss()
     # Define PSNR metric
     psnrFunc = PSNR().double().cuda() if device == 'cuda' else PSNR().double()
 
+    learner = mamlModel.clone()
     for innerIteration in range(numInnerIterations):
-        trainError = mseLossFunc(learner(fineTuneDataNoisy), fineTuneDataClean)
-        learner.adapt(trainError)
+      for idx, sample in enumerate(test_dataloader_patches):
+          
+          sampleReal, sampleNoisy = sample
+          
+          sampleReal = sampleReal.to(device)
+          sampleNoisy = sampleNoisy.to(device)
 
-    # Evaluate the adapted model
-    predictions = learner(testDataNoisy)
-    # TODO: Maybe normalize both of these across the number of images in the test set?
-    testError = mseLossFunc(predictions, testDataClean)
-    testPSNR = psnrFunc(predictions, testDataClean).item()
+          trainError = mseLossFunc(learner(sampleNoisy), sampleReal)
+          learner.adapt(trainError)
+          break
+    testError = []
+    testPSNR = []
+    testPSNRNoisy = []
+    for idx, testSample in enumerate(test_dataloader_full):
+      print(idx)
+
+      sample, dimensions = testSample
+      testReal, testNoisy = sample
+
+      testReal = testReal.to(device)
+      testNoisy = testNoisy.to(device)
+
+      dimensions = (dimensions[0].cpu().detach().numpy()[0], dimensions[1].cpu().detach().numpy()[0])
+
+      # Evaluate the adapted model
+      predictions = learner(testNoisy)
+      predictions = predictions.clip(0.0, 1.0)
+      #print(dimensions)
+      arrayNoisy = torch.permute(torch.squeeze(testNoisy), (1,2,0)).cpu().detach().numpy()
+      resizedImg = arrayNoisy
+      #resizedImg = resize(arrayNoisy, dimensions, anti_aliasing=True)
+      imNoisy = Image.fromarray((resizedImg * 255).astype(np.uint8))
+      imNoisy.save("results/Image_"+str(idx)+"_Noisy.jpeg")
+
+      arrayClean = torch.permute(torch.squeeze(testReal), (1,2,0)).cpu().detach().numpy()
+      resizedImg = arrayClean
+      #resizedImg = resize(arrayClean, dimensions, anti_aliasing=True)
+      imClean = Image.fromarray((resizedImg * 255).astype(np.uint8))
+      imClean.save("results/Image_"+str(idx)+"_Clean.jpeg")
+
+      arrayDenoised = torch.permute(torch.squeeze(predictions), (1,2,0)).cpu().detach().numpy()
+      resizedImg = arrayDenoised
+      #resizedImg = resize(arrayDenoised, dimensions, anti_aliasing=True)
+      imDenoised = Image.fromarray((resizedImg * 255).astype(np.uint8))
+      imDenoised.save("results/Image_"+str(idx)+"_Denoised.jpeg")
+
+      testError.append(mseLossFunc(predictions, testReal).item())
+      testPSNRNoisy.append(psnrFunc(testNoisy, testReal).item())
+      testPSNR.append(psnrFunc(predictions, testReal).item())
+
+    avgError = sum(testError) / len(testError)
+    avgPSNR = sum(testPSNR) / len(testPSNR)
+    avgPSNRNoisy = sum(testPSNRNoisy) / len(testPSNRNoisy)
+    print(f'Meta-Test Loss: {avgError:.04f} | Meta-Test PSNR: {avgPSNR:.04f} | Average Noisy PSNR: {avgPSNRNoisy:.04f}')
