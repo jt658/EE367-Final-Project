@@ -20,23 +20,27 @@ torch.use_deterministic_algorithms(True)
 
 
 class BSDS300Dataset(Dataset):
-    def __init__(self, root='./BSDS300', patch_size=32, split='train', use_patches=True):
+    def __init__(self, root='./BSDS300', patch_size=32, split='train', use_patches=True, reshape=False):
         files = sorted(glob(os.path.join(root, 'images', split, '*')))
 
         self.use_patches = use_patches
-        self.images = self.load_images(files)
+        self.images = self.load_images(files, reshape)
         self.patches = self.patchify(self.images, patch_size)
         self.mean = torch.mean(self.patches)
         self.std = torch.std(self.patches)
 
-    def load_images(self, files):
+    def load_images(self, files, reshape=False):
         out = []
         for fname in files:
-            img = skimage.io.imread(fname).astype(np.float32) / 255.
+            img = skimage.io.imread(fname)
             if img.shape[0] > img.shape[1]:
                 img = img.transpose(1, 0, 2)
-            img = resize(img, (32,32), anti_aliasing=True)
-            img = img.transpose(2, 0, 1)
+            if reshape: 
+                img = img.astype(np.float32) / 255.
+                img = resize(img, (img.shape[0] // 8, img.shape[1] // 8), anti_aliasing=True)
+                img = img.transpose(2, 0, 1) # Move astype and stuff after to line 35 if doing resizing
+            else:
+                img = img.transpose(2, 0, 1).astype(np.float32) / 255.
             out.append(torch.from_numpy(img))
         return torch.stack(out)
 
