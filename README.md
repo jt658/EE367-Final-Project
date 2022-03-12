@@ -38,7 +38,7 @@ train_and_test.ipynb    # Trains and tests Meta-Denoiser
 ```
 ## Instructions
 1. Clone this repository: ```$ git clone https://github.com/jt658/EE367-Final-Project.git && cd EE367-Final-Project```
-2. Install the necessary dependencies: ```$ conda create env --name <env_name> --file requirements.txt```
+2. Install the necessary dependencies. Download the EE 367 environment from the course [site](http://stanford.edu/class/ee367/HW/HW1.zip). You may also need to ```$ pip install bm3d``` to run Non-Learning-Methods.ipynb.
 3. Train and evaluate MetaDenoiser by running the cells in ```train_and_test.ipynb```.
   - See comments in ```train_and_test.ipynb``` for more details
 5. Run and evaluate non-learning methods by running the cells in ```Non-Learning-Methods.ipynb```
@@ -52,4 +52,6 @@ train_and_test.ipynb    # Trains and tests Meta-Denoiser
   month={March},
   year={2022}
 ```
-    
+Contact information:
+- Jessica Tawade: jt658@stanford.edu
+- Rahul Shiv: rshiv2@stanford.edu
