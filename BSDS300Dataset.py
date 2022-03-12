@@ -1,3 +1,9 @@
+"""
+This script provides a Dataset object for the BSDS300 dataset (https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/bsds/). 
+
+The Dataset object can sample entire images from the BSDS300 dataset, or it can return smaller patches of an image.
+"""
+
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -14,13 +20,16 @@ from tqdm import tqdm
 torch.manual_seed(1)
 torch.use_deterministic_algorithms(True)
 
-#matplotlib.rcParams['figure.raise_window'] = False
-
-#device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-
 class BSDS300Dataset(Dataset):
     def __init__(self, root='./BSDS300', patch_size=32, split='train', use_patches=True, reshape=False):
+        """
+        :param root (str): directory containing images from BSDS300 dataset
+        :param patch_size (int): the dimension of a patch, which we subsample from images
+        :param split (str): 'train' or 'test', determines which group of images we will sample from
+        :param use_patches (boolean): True if object will return patches, False if object will return 
+            entire images
+        :param reshape (boolean): True if images will be downsampled
+        """
         files = sorted(glob(os.path.join(root, 'images', split, '*')))
 
         self.use_patches = use_patches
@@ -30,6 +39,10 @@ class BSDS300Dataset(Dataset):
         self.std = torch.std(self.patches)
 
     def load_images(self, files, reshape=False):
+        """
+        Loads all images in dataset into a tensor. 
+        """
+
         out = []
         for fname in files:
             img = skimage.io.imread(fname)
@@ -45,6 +58,9 @@ class BSDS300Dataset(Dataset):
         return torch.stack(out)
 
     def patchify(self, img_array, patch_size):
+        """
+        Divides images into smaller patches of dimension patch_size.
+        """
         # create patches from image array of size (N_images, 3, rows, cols)
         patches = img_array.unfold(2, patch_size, patch_size).unfold(3, patch_size, patch_size)
         patches = patches.reshape(patches.shape[0], 3, -1, patch_size, patch_size)

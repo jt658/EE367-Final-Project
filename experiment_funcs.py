@@ -1,5 +1,7 @@
 """
-Define functions needed for the demos.
+A set of noise estimation and psnr functions for baseline non-learning methods.
+
+This script was downloaded from the following URL: https://files.pythonhosted.org/packages/5c/08/3a4db88ae8017a6b292b01a91ab554647f86a8c69e53e556a056a6202ae5/bm3d-3.0.9.tar.gz.
 """
 
 import numpy as np

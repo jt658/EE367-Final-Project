@@ -1,3 +1,9 @@
+"""
+This script provides a Dataset object for the SIDD Dataset (https://www.eecs.yorku.ca/~kamel/sidd/). 
+
+The SIDDDataset object can return whole images, or it can break images into uniform patches and return
+individual patches instead.
+"""
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -49,6 +55,10 @@ class SIDDDataset(Dataset):
         self.loaded_img_patches = None
 
     def load_image(self, fname, reshape=False):
+        """
+        Loads all images in dataset into a tensor.
+        """
+
         img = skimage.io.imread(fname).astype(np.float32) / 255.
         if img.shape[0] > img.shape[1]:
             img = img.transpose(1, 0, 2)
@@ -59,6 +69,10 @@ class SIDDDataset(Dataset):
         return torch.from_numpy(img), (H, W)
         
     def patchify(self, img_array, patch_size):
+        """
+        Divides images into patches of uniform size. 
+        """
+
         # create patches from image array of size (N_images, 3, rows, cols)
         patches = img_array.unfold(2, patch_size, patch_size).unfold(3, patch_size, patch_size)
         patches = patches.reshape(patches.shape[0], 3, -1, patch_size, patch_size)
