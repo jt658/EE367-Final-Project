@@ -1,3 +1,9 @@
+# Citations:
+# We would like to cite the following GitHub repo as a reference for our code:
+# https://github.com/edwin-pan/MetaHDR
+# Authors: Edwin Pan and Anthony Vento
+
+
 import numpy as np
 import os
 import logging
