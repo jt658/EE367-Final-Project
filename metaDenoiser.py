@@ -14,6 +14,32 @@ import time
 from SIDDDataset import SIDDDataset
 from PIL import Image
 
+'''
+Meta-validation function: Tracks performance on the Meta-Denoiser model's ability to denoise various levels and types of noisy images
+
+Parameters:
+kShot:              Number of image patches to learn on for each task
+
+noiseTaskParams:    List of tuples. Each tuple (p1, p2) represents the noise parameters for a task where p1 = "G" for Gaussian denoising 
+                    and p1 = "P" for Poisson denoising. p2 corresponding to the noise level. For Gaussian denoising p2 = standard deviation (sigma).
+                    For Poisson denoising p2 = scaling factor (beta).
+
+imgDim:             Spatial dimensions of the image patches 
+
+learner:            MAML model from l2l
+
+lossFunc:           Loss function for the model
+
+psnrFunc:           PSNR function for the model 
+
+numInnerIterations: Number of inner iterations to use when adapting the DnCNN model
+
+use_patches:        Boolean that indicates whether to validate on patches or whole images
+
+visualizeImgs:      Boolean that indicates whether or not to plot resulting clean, noisy, and denoised image patches for each task
+
+reshape:            Boolean that indicates whether or not to downside whole images 
+'''
 def validation(kShot, noiseTaskParams, device, imgDim, learner, lossFunc, psnrFunc, numInnerIterations, use_patches=True, visualizeImgs=False, reshape=False):
     # create datasets and dataloader for the validation data 
     val_dataset = BSDS300Dataset(patch_size=imgDim, split='validation', use_patches=use_patches, reshape=reshape)
@@ -97,7 +123,29 @@ def validation(kShot, noiseTaskParams, device, imgDim, learner, lossFunc, psnrFu
     # Return average error and PSNR across all tasks
     return error / len(noiseTaskParams), PSNR / len(noiseTaskParams)
 
+'''
+Meta-train function: Train's the Meta-Denoiser model to find a good initialization for the DnCNN to generalize on multiple denoising tasks
 
+Parameters:
+
+innerLr:            Learning rate of DnCNN
+
+outerLr:            Learning rate of MAML
+
+numOuterIterations: Number of outer iterations to use when updating the initialization of the DnCNN model 
+
+numInnerIterations: Number of inner iterations to use when adapting the DnCNN model
+
+kShot:              Number of image patches to learn on for each task
+
+imgDim:             Spatial dimensions of the image patches 
+
+noiseTaskParams:    List of tuples. Each tuple (p1, p2) represents the noise parameters for a task where p1 = "G" for Gaussian denoising 
+                    and p1 = "P" for Poisson denoising. p2 corresponding to the noise level. For Gaussian denoising p2 = standard deviation (sigma).
+                    For Poisson denoising p2 = scaling factor (beta).
+
+metaValFreq:        How often to meta-validate the model. Every k outer iterations where k = metaValFreq. 
+'''
 def train(innerLr, outerLr, numOuterIterations, numInnerIterations, kShot, imgDim, noiseTaskParams, metaValFreq):
 
     # Verify that the model is using the GPU
@@ -215,6 +263,28 @@ def train(innerLr, outerLr, numOuterIterations, numInnerIterations, kShot, imgDi
         avgIterError.backward()
         optimizer.step()
 
+'''
+Meta-test function: Evaluates the model's ability to fine tune and generalize to a new unseen denoise task. 
+
+Parameters:
+numInnerIterations: Number of inner iterations to use when adapting the DnCNN model
+
+kShot:              Number of image patches to learn on for each task
+
+innerLr:            Learning rate of DnCNN
+
+modelStatePath:     Name and/or path to the .pth.tar file or model weights that resulted in the best meta-validation PSNR
+
+folderName:         Internal folder where you would like to store the denoised images 
+
+datasetName:        Set to "SIDD" to meta-test on real noisy images. Set to "BSDS300" to meta-test on synthetic noisy images. 
+
+noiseParam:         Noise parameter tuple. The tuple (p1, p2) represents the noise parameters for a task where p1 = "G" for Gaussian denoising 
+                    and p1 = "P" for Poisson denoising. p2 corresponding to the noise level. For Gaussian denoising p2 = standard deviation (sigma).
+                    For Poisson denoising p2 = scaling factor (beta).
+
+                    Note: This parameter is only used if datasetName == "BSDS300"
+'''
 def test(numInnerIterations, kshot, innerLr, modelStatePath, folderName, datasetName="BSDS300", noiseParam=None):
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
