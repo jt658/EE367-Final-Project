@@ -55,3 +55,8 @@ train_and_test.ipynb    # Trains and tests Meta-Denoiser
 Contact information:
 - Jessica Tawade: jt658@stanford.edu
 - Rahul Shiv: rshiv2@stanford.edu
+
+## Citations
+We would like to cite the following GitHub repo as a reference for our code:
+https://github.com/edwin-pan/MetaHDR
+Authors: Edwin Pan and Anthony Vento
